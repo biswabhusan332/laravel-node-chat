@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Modern Chat</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script src="http://localhost:3000/socket.io/socket.io.js"></script>
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -105,16 +106,25 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Ensure global axios exists
+            if (typeof axios !== 'undefined') {
+                window.axios = window.axios || axios;
+            }
+
             let socket;
             if (typeof io !== 'undefined') {
                 socket = io('http://localhost:3000');
             } else {
                 console.error('Socket.io client not loaded.');
-                // Optional: Show a subtle toast instead of alert
             }
 
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            window.axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+            if (window.axios) {
+                window.axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+                window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+            } else {
+                console.error('Axios is not defined');
+            }
 
             const chatBox = document.getElementById('chat-box');
             const messageInput = document.getElementById('message-input');
@@ -163,28 +173,22 @@
                     return;
                 }
 
-                // Optimistic UI update
-                appendMessage(username, message, new Date().toISOString(), true);
+                // Clear input immediately
                 messageInput.value = '';
-                scrollToBottom();
 
-                // API Call
+                // API Call - Message will be appended when received via Socket
                 window.axios.post('/messages', {
                         username,
                         message
                     })
                     .then(() => {
-                        if (socket) {
-                            socket.emit('chat message', {
-                                username,
-                                message,
-                                created_at: new Date().toISOString()
-                            });
-                        }
+                        // Success - do nothing, wait for socket
                     })
                     .catch(err => {
                         console.error('Failed to send', err);
-                        // Optional: Show error state on the message
+                        alert('Failed to send message. Please try again.');
+                        // Restore input if failed
+                        messageInput.value = message;
                     });
             }
 

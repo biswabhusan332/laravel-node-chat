@@ -5,6 +5,7 @@ import cors from 'cors';
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -20,14 +21,12 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('User disconnected: ' + socket.id);
     });
+});
 
-    socket.on('chat message', (msg) => {
-        console.log('Message received: ' + JSON.stringify(msg));
-        // Broadcast to all clients including sender (or excluding if handled by UI optimistically)
-        // Usually we broadcast to others.
-        // io.emit('chat message', msg); // Broadcast to everyone
-        socket.broadcast.emit('chat message', msg); // Broadcast to everyone else
-    });
+app.post('/broadcast', (req, res) => {
+    const message = req.body;
+    io.emit('chat message', message);
+    res.status(200).json({ status: 'Message broadcasted' });
 });
 
 const PORT = 3000;
